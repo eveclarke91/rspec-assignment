@@ -11,5 +11,5 @@ class LocalCache
 	def get key 
 	    @storage[key]
 	end
-
+	
 end
