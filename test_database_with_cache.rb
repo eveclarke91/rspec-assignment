@@ -118,7 +118,7 @@ describe DatabaseWithCache do
 
     describe "#updateBook" do
        before(:each) do
-        @updatedBook = Book.new('1111','title 1','author 1',30.99, 'Programming', 20 )        
+        @updatedBook = Book.new('1111','title 1','Jim',30.99, 'Programming', 20 )        
         #expect(@database_mock).to receive(:updateBook).with(@updatedBook)
        end
       context "Given that a book has a valid ISBN" do
@@ -127,7 +127,7 @@ describe DatabaseWithCache do
           it " then it should update the book to the new version"do
             
             #get remote version
-            #@updatedBook = Book.new('1111','title 1','author 1',30.99, 'Programming', 20 ) 
+            #@updatedBook = Book.new('1111','title 1','Jim',30.99, 'Programming', 20 ) 
             expect(@database_mock).to receive(:updateBook).with(@updatedBook)
 
             expect(@memcached_mock).to receive(:get).with('v_1111').and_return 1
@@ -163,6 +163,60 @@ describe DatabaseWithCache do
           @target.updateBook @book1111
         end
       end
-  end
+    end
+    describe "#authorSearch" do
+      before(:each) do
+        @newbook1 = Book.new('1112','newbook1','Jim',17.95, 'How to get over your fear of Ruby', 14 )
+        @newbook2 = Book.new('1113','newbook2','Jim',14.95, 'How to live with it anyway', 15 )
+        @newbook3 = Book.new('1114','newbook3','Jim',25.45, 'How to make chili sauce', 26 )
+        #@complex = String.new("{\"books\":[{\"title\":\"newbook1\",\"isbn\":\"1112\"},{\"title\":\"newbook2\",\"isbn\":\"1113\"},{\"title\":\"newbook3\",\"isbn\":\"1114\"}],\"value\":1137.25}")
+        @complex = String.new('{"books":[{"title":"newbook1","isbn":"1112"},{"title":"newbook2","isbn":"1113"},{"title":"newbook3","isbn":"1114"}],"value":1137.25}')
+      
+      end
+      context "Given that the author is valid" do
+        context "found isbn's for this author in the remote cache," do
+          context "found complex data for this autor in the remote cache" do
+              it "should use the remote version of data for this author" do
+                expect(@database_mock).to receive(:authorSearch).with('Jim').and_return [@newbook1, @newbook2, @newbook3]
+                expect(@memcached_mock).to receive(:get).with('bks_Jim')
+                expect(@memcached_mock).to receive(:set).with("Jim_1112_1_1113_1_1114_1 ", @complex)                
+                expect(@memcached_mock).to receive(:set).with("bks_Jim", '1112,1113,1114')
 
+                expect(@target).to receive(:buildISBNVersionString).with('1112', @newbook1).and_return '1112_1'
+                expect(@target).to receive(:buildISBNVersionString).with('1113', @newbook2).and_return '1113_1'
+                expect(@target).to receive(:buildISBNVersionString).with('1114', @newbook3).and_return '1114_1'
+
+                result = @target.authorSearch 'Jim'
+                expect(result).to eq JSON.parse @complex
+
+                #expect(@database_mock).to receive(:authorSearch).with('Jim')
+
+                #expect(@database_mock).to receive(:authorSearch).with('Jim')
+                #expect(@memcached_mock).to receive(:get).with('Jim')
+                #result = @target.authorSearch 'Jim'
+              end
+          end
+          context "no complex data found for this author in the remote cache" do
+              it "should generate a report from the isbns found and put the data into the remote cache" do
+              
+              end
+          end
+        end
+        context "no isbn's found for this author in the remote cache" do
+            it "should generate a books array from the database and generate a report from the isbns found and put the data into the remote cache" do
+            
+            end
+        end
+      end
+      context "Given that the author is invalid" do
+        it "shouldnt generate a report at all" do
+          #expect(@memcached_mock).to receive(:get).with('bks_someauthor')
+          #expect(@database_mock).to receive(:authorSearch).with('someauthor').and_return []
+          #expect(@memcached_mock).to receive(:set).with('bks_someauthor', ""), []
+          #result = @target.authorSearch "someauthor"
+          #expect(result).to eq Hash["books"=> [], "value"=> 0]
+        
+        end
+      end
+    end
 end
